@@ -3,16 +3,19 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import IO, Callable
 
 from .db import Database
 from .models import (
-    PRIORITIES, DataFileError, ValidationError, clean_deadline, clean_name, clean_status,
-    clean_title, normalize_tags, parse_priority,
+    PRIORITIES, DataFileError, ValidationError, clean_deadline, clean_description, clean_name,
+    clean_status, clean_title, normalize_tags, parse_priority,
 )
 
 JSON_VERSION = 1
+MAX_IMPORT_BYTES = 50 * 1024 * 1024
 CSV_FIELDS = ["project", "title", "description", "priority", "status", "deadline", "tags"]
 
 
@@ -44,42 +47,75 @@ def export_json(db: Database, path: str | Path) -> int:
             for p in db.list_projects(include_archived=True)
         ],
     }
-    try:
-        Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    except OSError as exc:
-        raise DataFileError(f"Could not write {path}: {exc.strerror or exc}") from exc
+    text = json.dumps(data, indent=2, ensure_ascii=False)
+    _write_atomic(path, lambda fh: fh.write(text), newline=None)
     return len(tasks)
 
 
 def export_csv(db: Database, path: str | Path) -> int:
     """One row per task (projects without tasks are not represented in CSV)."""
     tasks = _all_tasks(db)
-    try:
-        with open(path, "w", newline="", encoding="utf-8") as fh:
-            writer = csv.DictWriter(fh, CSV_FIELDS)
-            writer.writeheader()
-            for t in tasks:
-                writer.writerow({
-                    "project": t.project_name, "title": t.title, "description": t.description,
-                    "priority": PRIORITIES[t.priority].lower(), "status": t.status,
-                    "deadline": t.deadline or "", "tags": ";".join(t.tags),
-                })
-    except OSError as exc:
-        raise DataFileError(f"Could not write {path}: {exc.strerror or exc}") from exc
+
+    def write(fh) -> None:
+        writer = csv.DictWriter(fh, CSV_FIELDS)
+        writer.writeheader()
+        for t in tasks:
+            writer.writerow({
+                "project": _safe_cell(t.project_name), "title": _safe_cell(t.title),
+                "description": _safe_cell(t.description),
+                "priority": PRIORITIES[t.priority].lower(), "status": t.status,
+                "deadline": t.deadline or "", "tags": _safe_cell(";".join(t.tags)),
+            })
+
+    _write_atomic(path, write, newline="")
     return len(tasks)
 
 
-def _clean_task(raw: dict, where: str) -> dict:
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _safe_cell(value: str) -> str:
+    """Stop spreadsheets from evaluating text as a formula (CSV injection)."""
+    return "'" + value if value.startswith(_FORMULA_START) else value
+
+
+def _unsafe_cell(value: str) -> str:
+    return value[1:] if value.startswith("'") and value[1:].startswith(_FORMULA_START) else value
+
+
+def _write_atomic(path: str | Path, write: Callable[[IO[str]], object], newline: str | None) -> None:
+    """Write to a temp file and rename, so a failure never destroys an existing file."""
+    path = Path(path)
+    tmp = path.with_name(path.name + ".tmp")
     try:
-        tags = raw.get("tags") or []
+        with open(tmp, "w", newline=newline, encoding="utf-8") as fh:
+            write(fh)
+        os.replace(tmp, path)
+    except OSError as exc:
+        raise DataFileError(f"Could not write {path}: {exc.strerror or exc}") from exc
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def _clean_task(raw: dict, where: str) -> dict:
+    def field(name: str, default: object) -> object:
+        value = raw.get(name)
+        return default if value is None or value == "" else value
+
+    try:
+        tags = field("tags", [])
         if isinstance(tags, str):
             tags = tags.replace(";", ",")
+        elif not isinstance(tags, list) or not all(isinstance(t, str) for t in tags):
+            raise ValidationError("tags must be text or a list of text.")
+        if not isinstance(raw.get("title", ""), str) and raw.get("title") is not None:
+            raise ValidationError("title must be text.")
         return {
             "title": clean_title(raw.get("title") or ""),
-            "description": str(raw.get("description") or "").strip(),
-            "priority": parse_priority(raw.get("priority") or 2),
-            "status": clean_status(raw.get("status") or "todo"),
-            "deadline": clean_deadline(raw.get("deadline")),
+            "description": clean_description(raw.get("description") or ""),
+            "priority": parse_priority(field("priority", 2)),
+            "status": clean_status(field("status", "todo")),
+            "deadline": clean_deadline(field("deadline", None)),
             "tags": normalize_tags(tags),
         }
     except ValidationError as exc:
@@ -108,8 +144,15 @@ def _parse_json(path: Path) -> list[dict]:
             if not isinstance(raw, dict):
                 raise DataFileError(f"Project '{name}', task #{j}: expected an object.")
             tasks.append(_clean_task(raw, f"Project '{name}', task #{j}"))
-        projects.append({"name": name, "description": str(p.get("description") or ""),
-                         "archived": bool(p.get("archived", False)), "tasks": tasks})
+        archived = p.get("archived", False)
+        if not isinstance(archived, bool):
+            raise DataFileError(f"Project '{name}': 'archived' must be true or false.")
+        try:
+            description = clean_description(p.get("description") or "")
+        except ValidationError as exc:
+            raise DataFileError(f"Project '{name}': {exc}") from None
+        projects.append({"name": name, "description": description,
+                         "archived": archived, "tasks": tasks})
     return projects
 
 
@@ -123,6 +166,8 @@ def _parse_csv(path: Path) -> list[dict]:
                     f"{path.name} is missing required column(s): {', '.join(sorted(missing))}.")
             projects: dict[str, dict] = {}
             for row_no, row in enumerate(reader, 2):  # row 1 is the header
+                row = {k: _unsafe_cell(v) if isinstance(v, str) and k in
+                       ("project", "title", "description", "tags") else v for k, v in row.items()}
                 try:
                     name = clean_name(row.get("project") or "")
                 except ValidationError as exc:
@@ -145,6 +190,9 @@ def import_file(db: Database, path: str | Path) -> ImportResult:
     if parse is None:
         raise DataFileError("Unsupported file type; choose a .json or .csv file.")
     try:
+        if path.stat().st_size > MAX_IMPORT_BYTES:
+            raise DataFileError(f"{path.name} is too large to import (limit "
+                                f"{MAX_IMPORT_BYTES // (1024 * 1024)} MB).")
         projects = parse(path)
     except OSError as exc:
         raise DataFileError(f"Could not read {path}: {exc.strerror or exc}") from exc

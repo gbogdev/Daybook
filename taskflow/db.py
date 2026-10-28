@@ -92,7 +92,11 @@ class Database:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self._depth = 0
-        self.created = self.migrate()  # True only if this call built a brand-new database
+        try:
+            self.created = self.migrate()  # True only if this call built a brand-new database
+        except BaseException:
+            self.conn.close()  # don't leave the file locked on failure
+            raise
 
     # -- lifecycle -----------------------------------------------------
     def migrate(self) -> bool:

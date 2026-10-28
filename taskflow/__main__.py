@@ -8,6 +8,31 @@ from pathlib import Path
 from .settings import Settings, default_data_dir
 
 
+def _setup_logging(data_dir: Path) -> None:
+    """Log to <data dir>/taskflow.log and show unhandled errors instead of dying silently."""
+    import logging
+    from logging.handlers import RotatingFileHandler
+
+    from PySide6.QtWidgets import QMessageBox
+
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+        handler = RotatingFileHandler(data_dir / "taskflow.log", maxBytes=512_000, backupCount=2,
+                                      encoding="utf-8")
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        logging.getLogger().addHandler(handler)
+        logging.getLogger().setLevel(logging.INFO)
+    except OSError:
+        pass  # logging is best-effort; the app must still start
+
+    def hook(kind, value, tb) -> None:
+        logging.getLogger("taskflow").error("Unhandled exception", exc_info=(kind, value, tb))
+        QMessageBox.critical(None, "TaskFlow", f"Unexpected error: {value}\n\nDetails are in "
+                                               f"{data_dir / 'taskflow.log'}")
+
+    sys.excepthook = hook
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="taskflow")
     parser.add_argument("--data-dir", type=Path, default=None,
@@ -23,6 +48,7 @@ def main() -> int:
 
     app = QApplication(sys.argv)
     app.setApplicationName("TaskFlow")
+    _setup_logging(data_dir)
     try:
         db = Database(data_dir / "taskflow.db")
     except Exception as exc:  # TaskFlowError, OSError, sqlite3.Error: all end the same way

@@ -9,6 +9,9 @@ STATUSES = ("todo", "doing", "done")
 STATUS_LABELS = {"todo": "To do", "doing": "In progress", "done": "Done"}
 PRIORITIES = {1: "Low", 2: "Medium", 3: "High"}
 MAX_TAG_LENGTH = 40
+MAX_NAME_LENGTH = 100
+MAX_TITLE_LENGTH = 300
+MAX_DESCRIPTION_LENGTH = 20_000
 
 
 class TaskFlowError(Exception):
@@ -75,8 +78,8 @@ def normalize_tags(raw: Iterable[str] | str | None) -> list[str]:
             continue
         if len(tag) > MAX_TAG_LENGTH:
             raise ValidationError(f"Tag '{tag[:20]}...' is longer than {MAX_TAG_LENGTH} characters.")
-        if "," in tag:
-            raise ValidationError("Tags cannot contain commas.")
+        if "," in tag or not tag.isprintable():
+            raise ValidationError("Tags cannot contain commas or control characters.")
         seen[tag] = None
     return list(seen)
 
@@ -114,11 +117,22 @@ def clean_title(value: str) -> str:
     title = " ".join(str(value).split())
     if not title:
         raise ValidationError("A task title is required.")
+    if len(title) > MAX_TITLE_LENGTH:
+        raise ValidationError(f"Task titles are limited to {MAX_TITLE_LENGTH} characters.")
     return title
+
+
+def clean_description(value: str) -> str:
+    text = str(value or "").strip()
+    if len(text) > MAX_DESCRIPTION_LENGTH:
+        raise ValidationError(f"Descriptions are limited to {MAX_DESCRIPTION_LENGTH} characters.")
+    return text
 
 
 def clean_name(value: str) -> str:
     name = " ".join(str(value).split())
     if not name:
         raise ValidationError("A project name is required.")
+    if len(name) > MAX_NAME_LENGTH:
+        raise ValidationError(f"Project names are limited to {MAX_NAME_LENGTH} characters.")
     return name

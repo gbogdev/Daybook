@@ -7,8 +7,8 @@ from typing import Sequence
 
 from .db import Database
 from .models import (
-    PRIORITIES, STATUSES, Project, Task, ValidationError, clean_deadline, clean_name,
-    clean_status, clean_title, normalize_tags, parse_priority,
+    PRIORITIES, STATUSES, Project, Task, ValidationError, clean_deadline, clean_description,
+    clean_name, clean_status, clean_title, normalize_tags, parse_priority,
 )
 
 
@@ -44,10 +44,10 @@ class TaskService:
 
     # -- projects ------------------------------------------------------
     def create_project(self, name: str, description: str = "") -> int:
-        return self.db.add_project(clean_name(name), description.strip())
+        return self.db.add_project(clean_name(name), clean_description(description))
 
     def edit_project(self, project_id: int, name: str, description: str = "") -> None:
-        self.db.update_project(project_id, clean_name(name), description.strip())
+        self.db.update_project(project_id, clean_name(name), clean_description(description))
 
     def set_archived(self, project_id: int, archived: bool) -> None:
         self.db.set_project_archived(project_id, archived)
@@ -63,7 +63,7 @@ class TaskService:
                     priority: int | str = 2, status: str = "todo",
                     deadline: str | None = None, tags: Sequence[str] | str = ()) -> int:
         return self.db.add_task(
-            project_id, clean_title(title), description.strip(), parse_priority(priority),
+            project_id, clean_title(title), clean_description(description), parse_priority(priority),
             clean_status(status), clean_deadline(deadline), normalize_tags(tags),
         )
 
@@ -71,7 +71,7 @@ class TaskService:
                   priority: int | str = 2, status: str = "todo",
                   deadline: str | None = None, tags: Sequence[str] | str = ()) -> None:
         self.db.update_task(
-            task_id, project_id, clean_title(title), description.strip(),
+            task_id, project_id, clean_title(title), clean_description(description),
             parse_priority(priority), clean_status(status), clean_deadline(deadline),
             normalize_tags(tags),
         )

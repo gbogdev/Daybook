@@ -1,6 +1,7 @@
 """Main window: wires the views to the service layer."""
 from __future__ import annotations
 
+import logging
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -24,7 +25,8 @@ from .dialogs import PreferencesDialog, ProjectDialog, TaskDialog
 from .theme import apply_theme
 from .views import ID_ROLE, BoardView, DashboardView, TaskTable
 
-SORT_CHOICES = [("Manual order", "position"), ("Title", "title"), ("Priority", "priority"),
+log = logging.getLogger(__name__)
+SORT_CHOICES =[("Manual order", "position"), ("Title", "title"), ("Priority", "priority"),
                 ("Deadline", "deadline"), ("Created", "created"), ("Status", "status"),
                 ("Project", "project")]
 VIEWS = ["board", "list", "dashboard"]
@@ -50,6 +52,7 @@ class Job(QRunnable):
         except (TaskFlowError, OSError, sqlite3.Error) as exc:
             self.signals.failed.emit(str(exc))
         except Exception as exc:  # last resort: never leave the UI waiting
+            log.exception("Background job failed")
             self.signals.failed.emit(f"Unexpected error: {exc!r}")
 
 
@@ -92,7 +95,9 @@ class MainWindow(QMainWindow):
         for view in (self.board, self.table):
             view.taskActivated.connect(self.edit_task)
             view.contextRequested.connect(self._task_menu)
-        self.table.doneToggled.connect(lambda i, d: self._guard(lambda: self.service.set_done(i, d)))
+        # deferred: _guard() rebuilds the table, which must not happen inside its own itemChanged signal
+        self.table.doneToggled.connect(
+            lambda i, d: QTimer.singleShot(0, lambda: self._guard(lambda: self.service.set_done(i, d))))
         self.table.sortRequested.connect(self._header_sort)
         self.apply_settings()
         self._building = False
@@ -500,7 +505,15 @@ class MainWindow(QMainWindow):
     def _db_path(self) -> Path:
         return self.service.db.path
 
+    def _busy(self) -> bool:
+        """Only one file operation at a time (avoids SQLite lock clashes with restore)."""
+        if self._jobs:
+            self._error("A file operation is already in progress; wait for it to finish.")
+        return bool(self._jobs)
+
     def import_data(self) -> None:
+        if self._busy():
+            return
         path, _ = QFileDialog.getOpenFileName(self, "Import", "", "TaskFlow data (*.json *.csv)")
         if not path:
             return
@@ -519,6 +532,8 @@ class MainWindow(QMainWindow):
         self._run_job(work, done, "Importing...")
 
     def export_data(self) -> None:
+        if self._busy():
+            return
         path, selected = QFileDialog.getSaveFileName(
             self, "Export", "taskflow-export.json", "JSON (*.json);;CSV (*.csv)")
         if not path:
@@ -537,6 +552,8 @@ class MainWindow(QMainWindow):
                       "Exporting...")
 
     def backup(self) -> None:
+        if self._busy():
+            return
         path, _ = QFileDialog.getSaveFileName(
             self, "Back up database", "taskflow-backup.db", "SQLite database (*.db)")
         if not path:
@@ -547,6 +564,8 @@ class MainWindow(QMainWindow):
                       "Backing up...")
 
     def restore(self) -> None:
+        if self._busy():
+            return
         path, _ = QFileDialog.getOpenFileName(self, "Restore database", "", "SQLite database (*.db)")
         if not path:
             return
