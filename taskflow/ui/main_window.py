@@ -10,7 +10,7 @@ from typing import Callable
 from PySide6.QtCore import QByteArray, QObject, QRunnable, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QKeySequence
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+    QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMainWindow, QMenu, QMessageBox, QPushButton, QSplitter, QStackedWidget,
     QVBoxLayout, QWidget,
 )
@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):
         rl = QVBoxLayout(right)
         rl.setContentsMargins(0, 0, 0, 0)
         rl.setSpacing(0)
+        rl.addWidget(self._build_toolbar())
         rl.addWidget(self.filter_bar)
         rl.addWidget(self.stack, 1)
         split = QSplitter()
@@ -119,8 +120,10 @@ class MainWindow(QMainWindow):
         v = QVBoxLayout(self.sidebar_box)
         v.setContentsMargins(0, 0, 0, 6)
         v.setSpacing(4)
-        title = QLabel("  Projects")
-        title.setObjectName("muted")
+        self.sidebar_box.setObjectName("sidebarBox")
+        title = QLabel("PROJECTS")
+        title.setObjectName("section")
+        title.setContentsMargins(14, 12, 0, 2)
         v.addWidget(title)
         v.addWidget(self.sidebar, 1)
         add = QPushButton("New project")
@@ -135,10 +138,37 @@ class MainWindow(QMainWindow):
         row2.addWidget(add)
         v.addLayout(row2)
 
+    def _build_toolbar(self) -> QWidget:
+        bar = QWidget()
+        bar.setObjectName("toolbar")
+        h = QHBoxLayout(bar)
+        h.setContentsMargins(12, 10, 12, 4)
+        h.setSpacing(2)
+        self.view_buttons: dict[str, QPushButton] = {}
+        group = QButtonGroup(self)
+        for name in VIEWS:
+            btn = QPushButton(name.capitalize())
+            btn.setObjectName("seg")
+            btn.setCheckable(True)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.clicked.connect(lambda _=False, n=name: self.set_view(n))
+            group.addButton(btn)
+            h.addWidget(btn)
+            self.view_buttons[name] = btn
+        h.addStretch(1)
+        new = QPushButton("New task")
+        new.setObjectName("primary")
+        new.setCursor(Qt.PointingHandCursor)
+        new.clicked.connect(lambda: self.new_task())
+        h.addWidget(new)
+        return bar
+
     def _build_filters(self) -> None:
         self.filter_bar = QWidget()
+        self.filter_bar.setObjectName("filterBar")
         h = QHBoxLayout(self.filter_bar)
-        h.setContentsMargins(8, 6, 8, 6)
+        h.setContentsMargins(12, 4, 12, 8)
+        h.setSpacing(8)
         self.search = QLineEdit()
         self.search.setPlaceholderText("Search tasks")
         self.search.setClearButtonEnabled(True)
@@ -306,6 +336,7 @@ class MainWindow(QMainWindow):
     # -- refresh -------------------------------------------------------
     def set_view(self, name: str) -> None:
         self.stack.setCurrentIndex(VIEWS.index(name) if name in VIEWS else 0)
+        self.view_buttons[VIEWS[self.stack.currentIndex()]].setChecked(True)
         board, lst = self.stack.currentIndex() == 0, self.stack.currentIndex() == 1
         self.sort.setEnabled(lst)
         self.descending.setEnabled(lst)

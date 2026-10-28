@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QModelIndex, QPoint, QRect, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
     QAbstractItemView, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QListWidget,
     QListWidgetItem, QProgressBar, QStyle, QStyledItemDelegate, QTableWidget, QTableWidgetItem,
@@ -33,26 +33,38 @@ class CardDelegate(QStyledItemDelegate):
     colors: dict[str, str] = {}
 
     def sizeHint(self, option, index: QModelIndex) -> QSize:
-        return QSize(option.rect.width(), 46)
+        return QSize(option.rect.width(), 58)
 
     def paint(self, painter: QPainter, option, index: QModelIndex) -> None:
         c = self.colors
-        r = option.rect.adjusted(2, 2, -2, -2)
+        r = option.rect.adjusted(2, 3, -2, -3)
         selected = bool(option.state & QStyle.State_Selected)
+        hovered = bool(option.state & QStyle.State_MouseOver)
         painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(QPen(QColor(c["accent"] if selected else c["border"])))
-        painter.setBrush(QColor(c["alt"]))
-        painter.drawRect(r)
-        stripe = {3: c["danger"], 2: c["warn"]}.get(index.data(PRIORITY_ROLE), c["low"])
-        painter.fillRect(QRect(r.left() + 1, r.top() + 1, 3, r.height() - 1), QColor(stripe))
-        text = r.adjusted(10, 4, -6, -4)
+        painter.setBrush(QColor(c["hover"] if hovered and not selected else c["base"]))
+        painter.drawRoundedRect(r.adjusted(0, 0, -1, -1), 6, 6)
+        dot = {3: c["danger"], 2: c["warn"]}.get(index.data(PRIORITY_ROLE), c["low"])
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(dot))
+        painter.drawEllipse(r.left() + 11, r.top() + 13, 8, 8)
+        text = QRect(r.left() + 26, r.top() + 8, r.width() - 36, r.height() - 14)
         fm = painter.fontMetrics()
+        title_font = painter.font()
+        title_font.setWeight(QFont.DemiBold)
+        painter.setFont(title_font)
         painter.setPen(QColor(c["text"]))
         painter.drawText(text.left(), text.top() + fm.ascent(),
-                         fm.elidedText(index.data(Qt.DisplayRole), Qt.ElideRight, text.width()))
+                         painter.fontMetrics().elidedText(index.data(Qt.DisplayRole), Qt.ElideRight, text.width()))
+        small = painter.font()
+        small.setWeight(QFont.Normal)
+        small.setPointSizeF(max(small.pointSizeF() - 1, 7))
+        painter.setFont(small)
         painter.setPen(QColor(c["danger"] if index.data(OVERDUE_ROLE) else c["muted"]))
-        painter.drawText(text.left(), text.bottom() - fm.descent(),
-                         fm.elidedText(index.data(SUB_ROLE), Qt.ElideRight, text.width()))
+        sm = painter.fontMetrics()
+        painter.drawText(text.left(), text.bottom() - sm.descent(),
+                         sm.elidedText(index.data(SUB_ROLE), Qt.ElideRight, text.width()))
         painter.restore()
 
 
@@ -63,6 +75,8 @@ class KanbanColumn(QListWidget):
     def __init__(self, status: str):
         super().__init__()
         self.status = status
+        self.setObjectName("column")
+        self.setMouseTracking(True)
         self.setItemDelegate(CardDelegate(self))
         self.setSelectionMode(QAbstractItemView.SingleSelection)
         self.setDragDropMode(QAbstractItemView.DragDrop)
@@ -114,12 +128,15 @@ class BoardView(QWidget):
             col.setContextMenuPolicy(Qt.CustomContextMenu)
             col.customContextMenuRequested.connect(lambda p, c=col: self._context(c, p))
             header = QLabel()
-            header.setObjectName("muted")
-            box = QVBoxLayout()
-            box.setSpacing(4)
+            header.setObjectName("section")
+            panel = QWidget()
+            panel.setObjectName("columnPanel")
+            box = QVBoxLayout(panel)
+            box.setContentsMargins(8, 8, 8, 8)
+            box.setSpacing(6)
             box.addWidget(header)
             box.addWidget(col, 1)
-            layout.addLayout(box, 1)
+            layout.addWidget(panel, 1)
             self.columns[status] = col
             self.headers[status] = header
 
@@ -163,7 +180,7 @@ class BoardView(QWidget):
             if t.id == keep:
                 self.columns[t.status].setCurrentItem(item)
         for status, header in self.headers.items():
-            header.setText(f"{STATUS_LABELS[status]}  ({counts[status]})")
+            header.setText(f"{STATUS_LABELS[status].upper()}   {counts[status]}")
 
     def set_colors(self, colors: dict[str, str]) -> None:
         CardDelegate.colors = colors
@@ -294,8 +311,8 @@ class DashboardView(QWidget):
             holder = QWidget()
             v = QVBoxLayout(holder)
             v.setContentsMargins(0, 8, 0, 0)
-            head = QLabel(title)
-            head.setObjectName("muted")
+            head = QLabel(title.upper())
+            head.setObjectName("section")
             v.addWidget(head)
             for w in rows or [QLabel("Nothing to show.")]:
                 v.addWidget(w)
