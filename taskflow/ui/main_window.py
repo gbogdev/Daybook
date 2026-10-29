@@ -23,7 +23,10 @@ from ..service import TaskFilter, TaskService
 from ..settings import Settings
 from .dialogs import PreferencesDialog, ProjectDialog, TaskDialog
 from .theme import apply_theme
-from .views import ID_ROLE, BoardView, DashboardView, TaskTable
+from .views import (
+    ARCHIVED_ROLE, COUNT_ROLE, ID_ROLE, TOTAL_ROLE, BoardView, DashboardView, SidebarDelegate,
+    TaskTable,
+)
 
 log = logging.getLogger(__name__)
 SORT_CHOICES =[("Manual order", "position"), ("Title", "title"), ("Priority", "priority"),
@@ -110,6 +113,8 @@ class MainWindow(QMainWindow):
     def _build_sidebar(self) -> None:
         self.sidebar = QListWidget()
         self.sidebar.setObjectName("sidebar")
+        self.sidebar.setItemDelegate(SidebarDelegate(self.sidebar))
+        self.sidebar.setMouseTracking(True)
         self.sidebar.setContextMenuPolicy(Qt.CustomContextMenu)
         self.sidebar.customContextMenuRequested.connect(self._project_menu)
         self.sidebar.currentItemChanged.connect(lambda *_: self.refresh())
@@ -142,8 +147,19 @@ class MainWindow(QMainWindow):
         bar = QWidget()
         bar.setObjectName("toolbar")
         h = QHBoxLayout(bar)
-        h.setContentsMargins(12, 10, 12, 4)
+        h.setContentsMargins(16, 14, 16, 6)
         h.setSpacing(2)
+        heading = QVBoxLayout()
+        heading.setSpacing(0)
+        self.title_label = QLabel("All projects")
+        self.title_label.setObjectName("pageTitle")
+        self.subtitle_label = QLabel("")
+        self.subtitle_label.setObjectName("muted")
+        heading.addWidget(self.title_label)
+        heading.addWidget(self.subtitle_label)
+        h.addLayout(heading)
+        h.addSpacing(24)
+        h.addStretch(1)
         self.view_buttons: dict[str, QPushButton] = {}
         group = QButtonGroup(self)
         for name in VIEWS:
@@ -155,8 +171,8 @@ class MainWindow(QMainWindow):
             group.addButton(btn)
             h.addWidget(btn)
             self.view_buttons[name] = btn
-        h.addStretch(1)
-        new = QPushButton("New task")
+        h.addSpacing(12)
+        new = QPushButton("+  New task")
         new.setObjectName("primary")
         new.setCursor(Qt.PointingHandCursor)
         new.clicked.connect(lambda: self.new_task())
@@ -366,17 +382,18 @@ class MainWindow(QMainWindow):
         projects = self.service.projects(include_archived=self.show_archived.isChecked())
         items = []
         for p in projects:
-            label = f"{p.name}  ({p.open_tasks})" + ("  archived" if p.archived else "")
-            item = QListWidgetItem(label)
+            item = QListWidgetItem(p.name + ("  (archived)" if p.archived else ""))
             item.setData(ID_ROLE, p.id)
-            item.setData(Qt.UserRole + 1, p.archived)
-            if p.archived:
-                item.setForeground(Qt.gray)
-            else:
+            item.setData(ARCHIVED_ROLE, p.archived)
+            item.setData(COUNT_ROLE, p.open_tasks)
+            item.setData(TOTAL_ROLE, p.total_tasks)
+            if not p.archived:
                 total_open += p.open_tasks
             items.append(item)
-        everything = QListWidgetItem(f"All projects  ({total_open})")
+        everything = QListWidgetItem("All projects")
         everything.setData(ID_ROLE, None)
+        everything.setData(COUNT_ROLE, total_open)
+        everything.setData(TOTAL_ROLE, sum(p.total_tasks for p in projects if not p.archived))
         self.sidebar.addItem(everything)
         for item in items:
             self.sidebar.addItem(item)
@@ -414,7 +431,10 @@ class MainWindow(QMainWindow):
         if self._building or self.sidebar.currentItem() is None:
             return
         item = self.sidebar.currentItem()
-        archived = bool(item.data(Qt.UserRole + 1))
+        archived = bool(item.data(ARCHIVED_ROLE))
+        self.title_label.setText(item.text())
+        open_n, total_n = item.data(COUNT_ROLE) or 0, item.data(TOTAL_ROLE) or 0
+        self.subtitle_label.setText(f"{open_n} open  ·  {total_n - open_n} done  ·  {total_n} total")
         for act in (self.edit_project_act, self.archive_act, self.delete_project_act):
             act.setEnabled(item.data(ID_ROLE) is not None)
         self.archive_act.setText("Unarchive" if archived else "&Archive")
@@ -454,7 +474,7 @@ class MainWindow(QMainWindow):
         pid = self.current_project_id()
         if pid is None:
             return
-        archived = bool(self.sidebar.currentItem().data(Qt.UserRole + 1))
+        archived = bool(self.sidebar.currentItem().data(ARCHIVED_ROLE))
         self._guard(lambda: self.service.set_archived(pid, not archived))
 
     def delete_project(self) -> None:

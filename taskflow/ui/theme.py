@@ -28,7 +28,8 @@ def apply_theme(app: QApplication, name: str) -> dict[str, str]:
     QLabel {{ background: transparent; }}
     QLabel#muted {{ color: {c['muted']}; }}
     QLabel#section {{ color: {c['muted']}; font-size: 8pt; font-weight: 600; padding: 2px 0; }}
-    QLabel#statValue {{ font-size: 18pt; font-weight: 600; }}
+    QLabel#statValue {{ font-size: 20pt; font-weight: 600; }}
+    QLabel#pageTitle {{ font-size: 16pt; font-weight: 600; }}
     QFrame#tile {{ background: {c['base']}; border: 1px solid {c['border']}; border-radius: 8px; }}
     QFrame#tile QLabel {{ background: transparent; }}
     QWidget#sidebarBox {{ background: {c['sidebar']}; }}

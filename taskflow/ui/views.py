@@ -1,7 +1,9 @@
 """Board, list and dashboard widgets. They display data and emit signals only."""
 from __future__ import annotations
 
-from PySide6.QtCore import QModelIndex, QPoint, QRect, QSize, Qt, Signal
+from datetime import date
+
+from PySide6.QtCore import QModelIndex, QPoint, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
     QAbstractItemView, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QListWidget,
@@ -13,27 +15,87 @@ from ..models import PRIORITIES, STATUS_LABELS, STATUSES, Task
 from ..service import Stats
 
 ID_ROLE = Qt.UserRole
-SUB_ROLE = Qt.UserRole + 1
 PRIORITY_ROLE = Qt.UserRole + 2
 OVERDUE_ROLE = Qt.UserRole + 3
+DUE_ROLE = Qt.UserRole + 4
+PROJECT_ROLE = Qt.UserRole + 5
+TAGS_ROLE = Qt.UserRole + 6
+ARCHIVED_ROLE = Qt.UserRole + 7
+COUNT_ROLE = Qt.UserRole + 8
+TOTAL_ROLE = Qt.UserRole + 9
+
+PROJECT_DOTS = ["#5b8def", "#4fb286", "#d9a441", "#c76fb0", "#e0675f", "#8a7fe0"]
 
 
-def task_subtitle(t: Task, show_project: bool) -> str:
-    parts = [PRIORITIES[t.priority]]
-    if t.deadline:
-        parts.append(("overdue " if t.is_overdue() else "due ") + t.deadline)
-    if show_project:
-        parts.append(t.project_name)
-    if t.tags:
-        parts.append("#" + " #".join(t.tags))
-    return "  ·  ".join(parts)
+def _tint(color: str, alpha: int) -> QColor:
+    c = QColor(color)
+    c.setAlpha(alpha)
+    return c
+
+
+def _short_date(iso: str) -> str:
+    try:
+        return date.fromisoformat(iso).strftime("%b %d").replace(" 0", " ")
+    except ValueError:
+        return iso
+
+
+class SidebarDelegate(QStyledItemDelegate):
+    colors: dict[str, str] = {}
+
+    def sizeHint(self, option, index: QModelIndex) -> QSize:
+        return QSize(option.rect.width(), 34)
+
+    def paint(self, painter: QPainter, option, index: QModelIndex) -> None:
+        c = self.colors
+        r = option.rect.adjusted(6, 1, -6, -1)
+        selected = bool(option.state & QStyle.State_Selected)
+        hovered = bool(option.state & QStyle.State_MouseOver)
+        archived = bool(index.data(ARCHIVED_ROLE))
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+        if selected or hovered:
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(c["accent"] if selected else c["hover"]))
+            painter.drawRoundedRect(QRectF(r), 6, 6)
+        pid = index.data(ID_ROLE)
+        dot = QColor(c["muted"] if archived else PROJECT_DOTS[pid % len(PROJECT_DOTS)] if pid else c["muted"])
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(dot if pid is not None else Qt.NoBrush)
+        if pid is None:  # "All projects": hollow ring
+            painter.setPen(QPen(QColor(c["accent_text"] if selected else c["muted"]), 1.5))
+        painter.drawEllipse(r.left() + 10, r.center().y() - 4, 8, 8)
+        fg = QColor(c["accent_text"] if selected else c["muted"] if archived else c["text"])
+        count = f"{index.data(COUNT_ROLE)}"
+        fm = painter.fontMetrics()
+        painter.setPen(_tint(fg.name(), 170 if selected else 150) if not selected else fg)
+        painter.drawText(QRect(r.right() - 40, r.top(), 32, r.height()),
+                         Qt.AlignRight | Qt.AlignVCenter, count)
+        painter.setPen(fg)
+        label = fm.elidedText(index.data(Qt.DisplayRole), Qt.ElideRight, r.width() - 80)
+        painter.drawText(QRect(r.left() + 26, r.top(), r.width() - 70, r.height()),
+                         Qt.AlignLeft | Qt.AlignVCenter, label)
+        painter.restore()
 
 
 class CardDelegate(QStyledItemDelegate):
     colors: dict[str, str] = {}
 
     def sizeHint(self, option, index: QModelIndex) -> QSize:
-        return QSize(option.rect.width(), 58)
+        return QSize(option.rect.width(), 74)
+
+    @staticmethod
+    def _pill(painter: QPainter, x: int, y: int, h: int, text: str, fg: QColor, bg: QColor,
+              limit: int) -> int:
+        w = painter.fontMetrics().horizontalAdvance(text) + 14
+        if x + w > limit:
+            return limit + 1  # no room: stop drawing further pills
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(bg)
+        painter.drawRoundedRect(QRectF(x, y, w, h), h / 2, h / 2)
+        painter.setPen(fg)
+        painter.drawText(QRect(x, y, w, h), Qt.AlignCenter, text)
+        return x + w + 6
 
     def paint(self, painter: QPainter, option, index: QModelIndex) -> None:
         c = self.colors
@@ -44,27 +106,40 @@ class CardDelegate(QStyledItemDelegate):
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(QPen(QColor(c["accent"] if selected else c["border"])))
         painter.setBrush(QColor(c["hover"] if hovered and not selected else c["base"]))
-        painter.drawRoundedRect(r.adjusted(0, 0, -1, -1), 6, 6)
-        dot = {3: c["danger"], 2: c["warn"]}.get(index.data(PRIORITY_ROLE), c["low"])
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor(dot))
-        painter.drawEllipse(r.left() + 11, r.top() + 13, 8, 8)
-        text = QRect(r.left() + 26, r.top() + 8, r.width() - 36, r.height() - 14)
-        fm = painter.fontMetrics()
+        painter.drawRoundedRect(QRectF(r).adjusted(0.5, 0.5, -0.5, -0.5), 8, 8)
+
+        inner = r.adjusted(12, 10, -12, -10)
         title_font = painter.font()
         title_font.setWeight(QFont.DemiBold)
         painter.setFont(title_font)
         painter.setPen(QColor(c["text"]))
-        painter.drawText(text.left(), text.top() + fm.ascent(),
-                         painter.fontMetrics().elidedText(index.data(Qt.DisplayRole), Qt.ElideRight, text.width()))
+        fm = painter.fontMetrics()
+        painter.drawText(inner.left(), inner.top() + fm.ascent(),
+                         fm.elidedText(index.data(Qt.DisplayRole), Qt.ElideRight, inner.width()))
+
         small = painter.font()
         small.setWeight(QFont.Normal)
-        small.setPointSizeF(max(small.pointSizeF() - 1, 7))
+        small.setPointSizeF(max(small.pointSizeF() - 1.5, 7))
         painter.setFont(small)
-        painter.setPen(QColor(c["danger"] if index.data(OVERDUE_ROLE) else c["muted"]))
-        sm = painter.fontMetrics()
-        painter.drawText(text.left(), text.bottom() - sm.descent(),
-                         sm.elidedText(index.data(SUB_ROLE), Qt.ElideRight, text.width()))
+        pill_h = painter.fontMetrics().height() + 2
+        y = inner.bottom() - pill_h + 1
+        x, limit = inner.left(), inner.right()
+        priority = index.data(PRIORITY_ROLE)
+        color = {3: c["danger"], 2: c["warn"]}.get(priority, c["low"])
+        x = self._pill(painter, x, y, pill_h, PRIORITIES[priority], QColor(color), _tint(color, 38), limit)
+        due = index.data(DUE_ROLE)
+        if due:
+            overdue = bool(index.data(OVERDUE_ROLE))
+            text = ("Overdue " if overdue else "Due ") + _short_date(due)
+            fg = QColor(c["danger"] if overdue else c["muted"])
+            x = self._pill(painter, x, y, pill_h, text, fg, _tint(fg.name(), 30), limit)
+        project = index.data(PROJECT_ROLE)
+        if project:
+            x = self._pill(painter, x, y, pill_h, project, QColor(c["muted"]), _tint(c["muted"], 30), limit)
+        for tag in index.data(TAGS_ROLE) or []:
+            x = self._pill(painter, x, y, pill_h, "#" + tag, QColor(c["muted"]), _tint(c["muted"], 30), limit)
+            if x > limit:
+                break
         painter.restore()
 
 
@@ -83,6 +158,14 @@ class KanbanColumn(QListWidget):
         self.setDefaultDropAction(Qt.MoveAction)
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.setSpacing(0)
+
+    def paintEvent(self, event) -> None:
+        super().paintEvent(event)
+        if self.count() == 0:
+            painter = QPainter(self.viewport())
+            painter.setPen(QColor(CardDelegate.colors.get("muted", "#888888")))
+            painter.drawText(self.viewport().rect(), Qt.AlignHCenter | Qt.AlignTop, "\n  No tasks")
+            painter.end()
 
     def dropEvent(self, event) -> None:
         source = event.source()
@@ -172,7 +255,9 @@ class BoardView(QWidget):
             counts[t.status] += 1
             item = QListWidgetItem(t.title)
             item.setData(ID_ROLE, t.id)
-            item.setData(SUB_ROLE, task_subtitle(t, show_project))
+            item.setData(DUE_ROLE, t.deadline)
+            item.setData(PROJECT_ROLE, t.project_name if show_project else None)
+            item.setData(TAGS_ROLE, t.tags)
             item.setData(PRIORITY_ROLE, t.priority)
             item.setData(OVERDUE_ROLE, t.is_overdue())
             item.setToolTip(t.description[:300] if t.description else t.title)
@@ -184,6 +269,7 @@ class BoardView(QWidget):
 
     def set_colors(self, colors: dict[str, str]) -> None:
         CardDelegate.colors = colors
+        SidebarDelegate.colors = colors
         for col in self.columns.values():
             col.viewport().update()
 
@@ -301,6 +387,8 @@ class DashboardView(QWidget):
             box.setSpacing(0)
             number = QLabel(str(value))
             number.setObjectName("statValue")
+            if caption == "Overdue" and value:
+                number.setStyleSheet(f"color: {CardDelegate.colors.get('danger', '#e0675f')};")
             small = QLabel(caption)
             small.setObjectName("muted")
             box.addWidget(number)
