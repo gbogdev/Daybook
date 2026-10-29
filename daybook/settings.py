@@ -34,12 +34,12 @@ DEFAULTS: dict[str, Any] = {
 
 
 def default_data_dir() -> Path:
-    override = os.environ.get("TASKFLOW_DATA_DIR")
+    override = os.environ.get("DAYBOOK_DATA_DIR")
     if override:
         return Path(override)
     if os.name == "nt":
-        return Path(os.environ.get("APPDATA", Path.home())) / "TaskFlow"
-    return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "taskflow"
+        return Path(os.environ.get("APPDATA", Path.home())) / "Daybook"
+    return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "daybook"
 
 
 class Settings:

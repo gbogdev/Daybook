@@ -14,19 +14,19 @@ MAX_TITLE_LENGTH = 300
 MAX_DESCRIPTION_LENGTH = 20_000
 
 
-class TaskFlowError(Exception):
+class DaybookError(Exception):
     """Base class for errors that are safe to show to the user."""
 
 
-class ValidationError(TaskFlowError):
+class ValidationError(DaybookError):
     """Input rejected before it reaches the database."""
 
 
-class NotFoundError(TaskFlowError):
+class NotFoundError(DaybookError):
     """A referenced project or task does not exist."""
 
 
-class DataFileError(TaskFlowError):
+class DataFileError(DaybookError):
     """Import, export, backup or restore failed."""
 
 

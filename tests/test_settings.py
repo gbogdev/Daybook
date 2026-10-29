@@ -1,6 +1,6 @@
 import json
 
-from taskflow.settings import DEFAULT_SHORTCUTS, Settings
+from daybook.settings import DEFAULT_SHORTCUTS, Settings
 
 
 def test_defaults_when_missing(tmp_path):

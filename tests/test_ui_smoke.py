@@ -7,8 +7,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from taskflow.settings import Settings  # noqa: E402
-from taskflow.ui.main_window import MainWindow  # noqa: E402
+from daybook.settings import Settings  # noqa: E402
+from daybook.ui.main_window import MainWindow  # noqa: E402
 
 
 @pytest.fixture(scope="module")

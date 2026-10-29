@@ -3,9 +3,9 @@ import sqlite3
 
 import pytest
 
-from taskflow.backup import backup_database, restore_database
-from taskflow.importexport import export_csv, export_json, import_file
-from taskflow.models import DataFileError
+from daybook.backup import backup_database, restore_database
+from daybook.importexport import export_csv, export_json, import_file
+from daybook.models import DataFileError
 
 
 @pytest.fixture
@@ -27,8 +27,8 @@ def _snapshot(svc):
 def test_round_trip(populated, tmp_path, fmt):
     path = tmp_path / f"out.{fmt}"
     (export_json if fmt == "json" else export_csv)(populated.db, path)
-    from taskflow.db import Database
-    from taskflow.service import TaskService
+    from daybook.db import Database
+    from daybook.service import TaskService
     with Database(tmp_path / "fresh.db") as fresh:
         result = import_file(fresh, path)
         assert result.tasks_created == 2
@@ -62,7 +62,7 @@ def test_csv_missing_columns(svc, tmp_path):
 
 @pytest.mark.parametrize("content,message", [
     ("{not json", "not valid JSON"),
-    ('{"hello": 1}', "not a TaskFlow export"),
+    ('{"hello": 1}', "not a Daybook export"),
     ('{"projects": [{"name": "", "tasks": []}]}', "Project #1"),
     ('{"projects": [{"name": "A", "tasks": [{"title": ""}]}]}', "task #1"),
     ('{"version": 99, "projects": []}', "newer"),
@@ -116,7 +116,7 @@ def test_restore_rejects_garbage(populated, tmp_path):
     conn.execute("CREATE TABLE foo (x)")
     conn.commit()
     conn.close()
-    with pytest.raises(DataFileError, match="not a TaskFlow database"):
+    with pytest.raises(DataFileError, match="not a Daybook database"):
         restore_database(populated.db, other)
     with pytest.raises(DataFileError, match="does not exist"):
         restore_database(populated.db, tmp_path / "nope.db")

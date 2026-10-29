@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 from ..backup import backup_database, restore_database
 from ..db import Database
 from ..importexport import export_csv, export_json, import_file
-from ..models import PRIORITIES, STATUS_LABELS, STATUSES, TaskFlowError
+from ..models import PRIORITIES, STATUS_LABELS, STATUSES, DaybookError
 from ..service import TaskFilter, TaskService
 from ..settings import Settings
 from .dialogs import PreferencesDialog, ProjectDialog, TaskDialog
@@ -52,7 +52,7 @@ class Job(QRunnable):
     def run(self) -> None:
         try:
             self.signals.done.emit(self.fn())
-        except (TaskFlowError, OSError, sqlite3.Error) as exc:
+        except (DaybookError, OSError, sqlite3.Error) as exc:
             self.signals.failed.emit(str(exc))
         except Exception as exc:  # last resort: never leave the UI waiting
             log.exception("Background job failed")
@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.service = service
         self.settings = settings
-        self.setWindowTitle("TaskFlow")
+        self.setWindowTitle("Daybook")
         self.resize(1100, 680)
         self.pool = QThreadPool.globalInstance()
         self._jobs: set[Job] = set()
@@ -296,14 +296,14 @@ class MainWindow(QMainWindow):
 
     # -- helpers -------------------------------------------------------
     def _error(self, message: str) -> None:
-        QMessageBox.critical(self, "TaskFlow", message)
+        QMessageBox.critical(self, "Daybook", message)
 
     def _guard(self, fn: Callable[[], object]) -> bool:
         """Run a DB operation; show a readable message on failure and refresh."""
         try:
             fn()
             ok = True
-        except TaskFlowError as exc:
+        except DaybookError as exc:
             self._error(str(exc))
             ok = False
         except sqlite3.Error as exc:
@@ -443,7 +443,7 @@ class MainWindow(QMainWindow):
                 self.dashboard.set_stats(self.service.stats(self.current_project_id()))
                 return
             tasks = self.service.tasks(self._filter())
-        except (TaskFlowError, sqlite3.Error) as exc:
+        except (DaybookError, sqlite3.Error) as exc:
             self._error(f"Could not load tasks: {exc}")
             return
         show_project = self.current_project_id() is None
@@ -517,7 +517,7 @@ class MainWindow(QMainWindow):
             return
         try:
             task = self.service.get_task(task_id)
-        except TaskFlowError as exc:
+        except DaybookError as exc:
             self._error(str(exc))
             self.refresh_all()
             return
@@ -532,7 +532,7 @@ class MainWindow(QMainWindow):
             return
         try:
             task = self.service.get_task(task_id)
-        except TaskFlowError as exc:
+        except DaybookError as exc:
             self._error(str(exc))
             self.refresh_all()
             return
@@ -565,7 +565,7 @@ class MainWindow(QMainWindow):
     def import_data(self) -> None:
         if self._busy():
             return
-        path, _ = QFileDialog.getOpenFileName(self, "Import", "", "TaskFlow data (*.json *.csv)")
+        path, _ = QFileDialog.getOpenFileName(self, "Import", "", "Daybook data (*.json *.csv)")
         if not path:
             return
         db_path = self._db_path()
@@ -586,7 +586,7 @@ class MainWindow(QMainWindow):
         if self._busy():
             return
         path, selected = QFileDialog.getSaveFileName(
-            self, "Export", "taskflow-export.json", "JSON (*.json);;CSV (*.csv)")
+            self, "Export", "daybook-export.json", "JSON (*.json);;CSV (*.csv)")
         if not path:
             return
         as_csv = path.lower().endswith(".csv") or (
@@ -606,7 +606,7 @@ class MainWindow(QMainWindow):
         if self._busy():
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Back up database", "taskflow-backup.db", "SQLite database (*.db)")
+            self, "Back up database", "daybook-backup.db", "SQLite database (*.db)")
         if not path:
             return
         db_path = self._db_path()
@@ -627,7 +627,7 @@ class MainWindow(QMainWindow):
             return
         try:
             safety = restore_database(self.service.db, path)
-        except (TaskFlowError, sqlite3.Error, OSError) as exc:
+        except (DaybookError, sqlite3.Error, OSError) as exc:
             self._error(str(exc))
             return
         self.refresh_all()

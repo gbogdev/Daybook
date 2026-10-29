@@ -51,15 +51,15 @@ def _validate_backup(path: Path) -> None:
             raise DataFileError(f"{path.name} is damaged (integrity check failed).")
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if not _REQUIRED_TABLES <= tables:
-            raise DataFileError(f"{path.name} is not a TaskFlow database.")
+            raise DataFileError(f"{path.name} is not a Daybook database.")
         version = conn.execute("PRAGMA user_version").fetchone()[0]
         if not 1 <= version <= SCHEMA_VERSION:
             raise DataFileError(
-                f"{path.name} has schema version {version}; this TaskFlow supports 1-{SCHEMA_VERSION}.")
+                f"{path.name} has schema version {version}; this Daybook supports 1-{SCHEMA_VERSION}.")
         for table, columns in _REQUIRED_COLUMNS.items():
             have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
             if not columns <= have:
-                raise DataFileError(f"{path.name} is not a TaskFlow database (bad '{table}' table).")
+                raise DataFileError(f"{path.name} is not a Daybook database (bad '{table}' table).")
         if conn.execute("PRAGMA foreign_key_check").fetchall():
             raise DataFileError(f"{path.name} fails the foreign-key check and cannot be restored.")
     except sqlite3.DatabaseError as exc:

@@ -2,8 +2,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from taskflow.models import ValidationError, normalize_tags
-from taskflow.service import TaskFilter
+from daybook.models import ValidationError, normalize_tags
+from daybook.service import TaskFilter
 
 
 def test_create_task_normalizes_input(svc, project):

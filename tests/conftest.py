@@ -1,7 +1,7 @@
 import pytest
 
-from taskflow.db import Database
-from taskflow.service import TaskService
+from daybook.db import Database
+from daybook.service import TaskService
 
 
 @pytest.fixture

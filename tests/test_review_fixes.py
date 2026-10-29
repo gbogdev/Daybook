@@ -4,10 +4,10 @@ import sqlite3
 
 import pytest
 
-from taskflow.backup import backup_database, restore_database
-from taskflow.db import SCHEMA_VERSION, Database
-from taskflow.importexport import export_csv, export_json, import_file
-from taskflow.models import DataFileError, ValidationError, normalize_tags
+from daybook.backup import backup_database, restore_database
+from daybook.db import SCHEMA_VERSION, Database
+from daybook.importexport import export_csv, export_json, import_file
+from daybook.models import DataFileError, ValidationError, normalize_tags
 
 
 def test_failed_open_releases_file(tmp_path):
@@ -27,7 +27,7 @@ def test_csv_formula_cells_are_neutralised_and_round_trip(svc, project, tmp_path
     raw = path.read_text(encoding="utf-8")
     for line in raw.splitlines()[1:]:
         assert not any(cell.startswith(("=", "+", "-", "@")) for cell in line.split(","))
-    from taskflow.db import Database as D
+    from daybook.db import Database as D
     with D(tmp_path / "f.db") as fresh:
         import_file(fresh, path)
         t = fresh.query_tasks()[0]
@@ -54,7 +54,7 @@ def test_bad_json_values_give_clean_errors(svc, tmp_path, content):
 
 
 def test_oversized_import_rejected(svc, tmp_path, monkeypatch):
-    import taskflow.importexport as ie
+    import daybook.importexport as ie
     monkeypatch.setattr(ie, "MAX_IMPORT_BYTES", 10)
     path = tmp_path / "big.json"
     path.write_text('{"projects": []}' + " " * 20)

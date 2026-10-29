@@ -1,4 +1,4 @@
-# TaskFlow
+# Daybook
 
 Desktop task and project manager. Tasks live in a local SQLite database; nothing is sent anywhere.
 
@@ -27,11 +27,11 @@ More screenshots: [list](docs/list.png), [dashboard](docs/dashboard.png).
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev]"
-python -m taskflow
+python -m daybook
 ```
 
-Data (`taskflow.db`, `settings.json`) is stored in `%APPDATA%\TaskFlow`. Override with
-`python -m taskflow --data-dir <folder>` or the `TASKFLOW_DATA_DIR` environment variable.
+Data (`daybook.db`, `settings.json`) is stored in `%APPDATA%\Daybook`. Override with
+`python -m daybook --data-dir <folder>` or the `DAYBOOK_DATA_DIR` environment variable.
 
 ## Tests
 
@@ -52,10 +52,10 @@ UI smoke tests run with Qt's offscreen platform (set automatically).
 
 ```powershell
 pip install -e ".[dev]"
-pyinstaller --noconfirm --windowed --name TaskFlow run_taskflow.py
+pyinstaller --noconfirm --windowed --name Daybook --icon daybook\assets\icon.ico --add-data "daybook\assets;daybook\assets" run_daybook.py
 ```
 
-The app is created in `dist\TaskFlow\TaskFlow.exe` (copy the whole folder). Use `--onefile` for a single exe (slower start-up).
+The app is created in `dist\Daybook\Daybook.exe` (copy the whole folder). Use `--onefile` for a single exe (slower start-up).
 
 ## Screenshots
 

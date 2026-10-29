@@ -104,7 +104,7 @@ class Database:
         version = self.conn.execute("PRAGMA user_version").fetchone()[0]
         if version > SCHEMA_VERSION:
             raise ValidationError(
-                f"This database was created by a newer TaskFlow (schema {version}, "
+                f"This database was created by a newer Daybook (schema {version}, "
                 f"this version supports {SCHEMA_VERSION})."
             )
         was_empty = version == 0

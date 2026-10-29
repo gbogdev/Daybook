@@ -12,10 +12,10 @@ from PySide6.QtWidgets import QApplication
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from taskflow.db import Database  # noqa: E402
-from taskflow.service import TaskService  # noqa: E402
-from taskflow.settings import Settings  # noqa: E402
-from taskflow.ui.main_window import MainWindow  # noqa: E402
+from daybook.db import Database  # noqa: E402
+from daybook.service import TaskService  # noqa: E402
+from daybook.settings import Settings  # noqa: E402
+from daybook.ui.main_window import MainWindow  # noqa: E402
 
 
 def d(days: int) -> str:

@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "taskflow"
+name = "daybook"
 version = "0.1.0"
 description = "Local task and project manager with a Kanban board (PySide6 + SQLite)"
 readme = "README.md"
@@ -14,10 +14,13 @@ dependencies = ["PySide6>=6.6"]
 dev = ["pytest>=7", "pyinstaller>=6"]
 
 [project.gui-scripts]
-taskflow = "taskflow.__main__:main"
+daybook = "daybook.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["taskflow*"]
+include = ["daybook*"]
+
+[tool.setuptools.package-data]
+daybook = ["assets/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -128,9 +128,9 @@ def _parse_json(path: Path) -> list[dict]:
     except json.JSONDecodeError as exc:
         raise DataFileError(f"{path.name} is not valid JSON ({exc.msg} at line {exc.lineno}).") from exc
     if not isinstance(data, dict) or not isinstance(data.get("projects"), list):
-        raise DataFileError(f"{path.name} is not a TaskFlow export (missing 'projects' list).")
+        raise DataFileError(f"{path.name} is not a Daybook export (missing 'projects' list).")
     if data.get("version", JSON_VERSION) > JSON_VERSION:
-        raise DataFileError(f"{path.name} was exported by a newer TaskFlow version.")
+        raise DataFileError(f"{path.name} was exported by a newer Daybook version.")
     projects = []
     for i, p in enumerate(data["projects"], 1):
         if not isinstance(p, dict) or not isinstance(p.get("tasks", []), list):

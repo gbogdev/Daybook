@@ -2,8 +2,8 @@ import sqlite3
 
 import pytest
 
-from taskflow.db import MIGRATIONS, SCHEMA_VERSION, Database
-from taskflow.models import NotFoundError, ValidationError
+from daybook.db import MIGRATIONS, SCHEMA_VERSION, Database
+from daybook.models import NotFoundError, ValidationError
 
 
 def test_new_database_is_migrated(tmp_path):
