@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daybook</title>
+<meta name="description" content="A simple desktop task and project manager. Kanban board, local SQLite storage, nothing leaves your computer.">
+<link rel="icon" href="icon.png">
+<style>
+  :root { --bg:#fff; --fg:#1d2330; --muted:#5d6678; --accent:#5b8def; --card:#f3f5f9; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14171d; --fg:#e6e9ef; --muted:#9aa3b5; --card:#1d222b; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 "Segoe UI", system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:56px 16px; }
+  header { display:flex; align-items:center; gap:16px; }
+  header img { width:64px; height:64px; }
+  h1 { margin:0; font-size:2.2rem; }
+  .lead { color:var(--muted); font-size:1.15rem; margin:8px 0 24px; }
+  .btn { display:inline-block; background:var(--accent); color:#fff; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:600; }
+  .btn.alt { background:var(--card); color:var(--fg); margin-left:8px; }
+  img.shot { width:100%; border-radius:10px; margin:32px 0 8px; border:1px solid var(--card); }
+  ul { padding-left:20px; } li { margin:6px 0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; }
+  .grid img { width:100%; border-radius:8px; }
+  small, footer { color:var(--muted); }
+  footer { margin-top:48px; font-size:.9rem; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon.png" alt="">
+    <h1>Daybook</h1>
+  </header>
+  <p class="lead">A simple desktop task and project manager. Your tasks stay in a local file; nothing is sent anywhere.</p>
+  <a class="btn" href="https://github.com/gbogdev/Daybook/releases/latest/download/Daybook-windows.zip">Download for Windows</a>
+  <a class="btn alt" href="https://github.com/gbogdev/Daybook">Source on GitHub</a>
+  <p><small>Unzip and run <code>Daybook.exe</code>. The app is unsigned, so Windows SmartScreen may warn you: choose "More info", then "Run anyway".</small></p>
+
+  <img class="shot" src="board.png" alt="Kanban board in the dark theme">
+
+  <h2>What it does</h2>
+  <ul>
+    <li>Projects with archive; tasks with priority, deadline, tags and description.</li>
+    <li>Kanban board with drag-and-drop, plus list and dashboard views.</li>
+    <li>Search, sort and filter by project, priority, status and tag.</li>
+    <li>JSON and CSV import/export, database backup and restore.</li>
+    <li>Dark, Graphite and Light themes; rebindable keyboard shortcuts.</li>
+  </ul>
+
+  <div class="grid">
+    <img src="list.png" alt="List view">
+    <img src="dashboard.png" alt="Dashboard view">
+  </div>
+
+  <footer>Free software under the <a href="https://github.com/gbogdev/Daybook/blob/main/LICENSE">GPL-3.0</a>. Built with Python, PySide6 and SQLite.</footer>
+</main>
+</body>
+</html>

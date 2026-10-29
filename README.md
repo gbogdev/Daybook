@@ -66,6 +66,10 @@ The app is created in `dist\Daybook\Daybook.exe` (copy the whole folder). Use `-
 - Single user, no sync. Drag-and-drop ordering is global per status column; it is applied relative to the visible (filtered) cards.
 - No undo; deletes ask for confirmation instead.
 
+## License
+
+GPL-3.0-or-later. See [LICENSE](LICENSE).
+
 ## Acknowledgment
 
 AI tools helped with research, debugging, and development guidance.
