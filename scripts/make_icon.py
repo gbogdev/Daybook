@@ -18,13 +18,23 @@ def render(size: int) -> QImage:
     p.setPen(Qt.NoPen)
     p.setBrush(QColor("#5b8def"))
     p.drawRoundedRect(QRectF(0, 0, size, size), size * 0.22, size * 0.22)
-    pen = QPen(QColor("white"), size * 0.11, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-    p.setPen(pen)
-    p.setBrush(Qt.NoBrush)
-    check = QPainterPath(QPointF(size * 0.27, size * 0.53))
-    check.lineTo(size * 0.44, size * 0.69)
-    check.lineTo(size * 0.74, size * 0.33)
-    p.drawPath(check)
+    # open book: two white pages meeting at a spine
+    p.setBrush(QColor("white"))
+    for sign in (-1, 1):
+        def pt(x: float, y: float) -> QPointF:
+            return QPointF(size * (0.5 + sign * x), size * y)
+        page = QPainterPath(pt(0.02, 0.30))
+        page.cubicTo(pt(0.14, 0.24), pt(0.28, 0.24), pt(0.34, 0.28))
+        page.lineTo(pt(0.34, 0.74))
+        page.cubicTo(pt(0.28, 0.70), pt(0.14, 0.70), pt(0.02, 0.76))
+        page.closeSubpath()
+        p.drawPath(page)
+    if size >= 48:  # text lines on the pages
+        p.setPen(QPen(QColor("#5b8def"), size * 0.028, Qt.SolidLine, Qt.RoundCap))
+        for sign in (-1, 1):
+            for y in (0.40, 0.50, 0.60):
+                p.drawLine(QPointF(size * (0.5 + sign * 0.10), size * y),
+                           QPointF(size * (0.5 + sign * 0.27), size * (y - 0.01)))
     p.end()
     return img
 
