@@ -14,7 +14,23 @@ Desktop task and project manager. Tasks live in a local SQLite database; nothing
 - Themes (Dark, Graphite, Light) and rebindable keyboard shortcuts; settings persist between sessions.
 - Import, export and backup run on a background thread; failures are shown as readable messages.
 
-More screenshots: [list](docs/list.png), [dashboard](docs/dashboard.png).
+## Screenshots
+
+The board (top of this page) lets you drag cards between and within columns.
+
+List view with completion checkboxes and sortable columns.
+
+![List](docs/list.png)
+
+Dashboard with totals, overdue count, progress per project and upcoming deadlines.
+
+![Dashboard](docs/dashboard.png)
+
+Editing a task, and the Light theme.
+
+![Task dialog](docs/task-dialog.png)
+
+![Board, light theme](docs/board-light.png)
 
 ## Requirements
 
@@ -57,9 +73,9 @@ pyinstaller --noconfirm --windowed --name Daybook --icon daybook\assets\icon.ico
 
 The app is created in `dist\Daybook\Daybook.exe` (copy the whole folder). Use `--onefile` for a single exe (slower start-up).
 
-## Screenshots
+## Regenerating screenshots
 
-`python scripts/screenshots.py` regenerates `docs/*.png` from demo data.
+`python scripts/screenshots.py` regenerates `docs/*.png` from demo data. Run it on a normal desktop session, not with `QT_QPA_PLATFORM=offscreen`, which has no fonts and renders text as boxes.
 
 ## Known limitations
 

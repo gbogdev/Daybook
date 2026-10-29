@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 from daybook.db import Database  # noqa: E402
 from daybook.service import TaskService  # noqa: E402
 from daybook.settings import Settings  # noqa: E402
+from daybook.ui.dialogs import TaskDialog  # noqa: E402
 from daybook.ui.main_window import MainWindow  # noqa: E402
 
 
@@ -58,6 +59,18 @@ def main() -> None:
             win.set_view(view)
             app.processEvents()
             win.grab().save(str(out / f"{view}.png"))
+        win.set_view("board")
+        task = svc.tasks()[1]
+        dlg = TaskDialog(win, svc.projects(include_archived=True), task)
+        dlg.show()
+        app.processEvents()
+        dlg.grab().save(str(out / "task-dialog.png"))
+        dlg.close()
+        win.settings["theme"] = "Light"
+        win.apply_settings()
+        win.set_view("board")
+        app.processEvents()
+        win.grab().save(str(out / "board-light.png"))
         win.close()
         db.close()
     print("wrote", ", ".join(sorted(p.name for p in out.glob("*.png"))))
